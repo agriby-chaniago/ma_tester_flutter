@@ -648,7 +648,7 @@ class _ComprehensiveReportPageState extends State<ComprehensiveReportPage>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
       child: Text(
         title,
         style: const TextStyle(

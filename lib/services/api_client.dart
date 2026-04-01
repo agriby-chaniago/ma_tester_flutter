@@ -163,22 +163,13 @@ class ApiClient {
     bool returnOverlay = true, // request overlay image (hanya untuk fmt=json)
     bool proba =
         false, // request lossless probability map (hanya untuk fmt=json)
+    String mode = 'auto', // auto | sim | real
+    bool allowFallback = true,
   }) async {
-    final dio = Dio(BaseOptions(
-      baseUrl: _dio.options.baseUrl,
-      connectTimeout: _dio.options.connectTimeout,
-      receiveTimeout: Duration(milliseconds: timeoutMs ?? 90000),
-      sendTimeout: Duration(milliseconds: timeoutMs ?? 90000),
-      // Accept all status codes to handle errors properly
-      validateStatus: (code) => code != null,
-    ));
-
-    // Detect MIME type dari file extension
     final filename = filePath.split('/').last;
     final mimeType = lookupMimeType(filePath) ?? 'image/jpeg';
     final contentType = MediaType.parse(mimeType);
 
-    // Debug log
     if (kDebugMode) {
       print('[ApiClient] Uploading file: $filename');
       print('[ApiClient] Detected MIME type: $mimeType');
@@ -194,12 +185,85 @@ class ApiClient {
       if (extraFields != null) ...extraFields,
     });
 
+    return _predictWithFormData(
+      form,
+      timeoutMs: timeoutMs,
+      threshold: threshold,
+      fmt: fmt,
+      returnOverlay: returnOverlay,
+      proba: proba,
+      mode: mode,
+      allowFallback: allowFallback,
+    );
+  }
+
+  Future<Map<String, dynamic>> predictMultipartBytes(
+    Uint8List fileBytes, {
+    required String filename,
+    String? mimeType,
+    Map<String, dynamic>? extraFields,
+    int? timeoutMs,
+    double? threshold,
+    String fmt = 'json',
+    bool returnOverlay = true,
+    bool proba = false,
+    String mode = 'auto',
+    bool allowFallback = true,
+  }) async {
+    final detectedMime =
+        mimeType ?? lookupMimeType(filename, headerBytes: fileBytes);
+    final contentType = MediaType.parse(detectedMime ?? 'image/jpeg');
+
+    if (kDebugMode) {
+      print('[ApiClient] Uploading bytes: $filename');
+      print('[ApiClient] Content-Type: ${contentType.mimeType}');
+    }
+
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        fileBytes,
+        filename: filename,
+        contentType: contentType,
+      ),
+      if (extraFields != null) ...extraFields,
+    });
+
+    return _predictWithFormData(
+      form,
+      timeoutMs: timeoutMs,
+      threshold: threshold,
+      fmt: fmt,
+      returnOverlay: returnOverlay,
+      proba: proba,
+      mode: mode,
+      allowFallback: allowFallback,
+    );
+  }
+
+  Future<Map<String, dynamic>> _predictWithFormData(
+    FormData form, {
+    int? timeoutMs,
+    double? threshold,
+    String fmt = 'json',
+    bool returnOverlay = true,
+    bool proba = false,
+    String mode = 'auto',
+    bool allowFallback = true,
+  }) async {
+    final dio = Dio(BaseOptions(
+      baseUrl: _dio.options.baseUrl,
+      connectTimeout: _dio.options.connectTimeout,
+      receiveTimeout: Duration(milliseconds: timeoutMs ?? 90000),
+      sendTimeout: Duration(milliseconds: timeoutMs ?? 90000),
+      validateStatus: (code) => code != null,
+    ));
+
     final params = <String, dynamic>{
-      'fmt': fmt, // png | proba | compact | json
-      // threshold tidak berlaku untuk fmt=proba (probability map 0-255)
+      'fmt': fmt,
       if (threshold != null && fmt != 'proba')
         'threshold': threshold.toString(),
-      // return_overlay dan proba hanya untuk fmt=json
+      'mode': mode,
+      'allow_fallback': allowFallback.toString(),
       if (fmt == 'json') ...{
         'return_overlay': returnOverlay.toString(),
         'proba': proba.toString(),
@@ -218,41 +282,41 @@ class ApiClient {
     );
     sw.stop();
 
-    // Check for error status codes
     if (resp.statusCode != null &&
         (resp.statusCode! < 200 || resp.statusCode! >= 300)) {
       throw createDetailedException('Predict', resp);
     }
 
     final responseContentType = resp.headers.value('content-type') ?? '';
-    final requestId = resp.headers.value('x-request-id'); // UUID untuk tracing
+    final requestId = resp.headers.value('x-request-id');
+    final modeRequestedHeader = resp.headers.value('x-model-mode-requested');
+    final modeUsedHeader = resp.headers.value('x-model-mode-used');
+    final modeFallbackHeader = resp.headers.value('x-model-fallback');
     Uint8List? maskBytes;
     Uint8List? overlayBytes;
     Uint8List? originalBytes;
     Map<String, dynamic>? js;
     Map<String, dynamic>? statistics;
-    String? probaNpyB64; // lossless probability map (.npy base64)
+    String? probaNpyB64;
 
-    // Helper untuk parse int dari string
     int? toInt(String? s) {
       if (s == null) return null;
       final v = double.tryParse(s);
       return v?.round();
     }
 
-    // Ambil timing dari header kalau ada
     int? latFromHeaders() {
       final pre = toInt(resp.headers.value('x-pre-ms'));
       final inf = toInt(resp.headers.value('x-infer-ms'));
       final post = toInt(resp.headers.value('x-post-ms'));
-      if (inf != null) return inf; // pakai infer_ms sebagai representatif
+      if (inf != null) return inf;
       return pre ?? post;
     }
 
-    // Ambil server infer ms khusus
+    final serverPreMs = toInt(resp.headers.value('x-pre-ms'));
     final serverInferMs = toInt(resp.headers.value('x-infer-ms'));
+    final serverPostMs = toInt(resp.headers.value('x-post-ms'));
 
-    // helper: data URL → bytes
     Uint8List? fromDataUrl(String? dataUrl) {
       if (dataUrl == null) return null;
       final idx = dataUrl.indexOf(',');
@@ -264,10 +328,8 @@ class ApiClient {
       }
     }
 
-    // --- CASE 1: Response berupa image/png (fmt=png atau fmt=proba) ---
     if (responseContentType.contains('image/png')) {
-      final outputType = resp.headers.value('x-output') ??
-          'mask'; // 'mask' atau 'probability_u8'
+      final outputType = resp.headers.value('x-output') ?? 'mask';
       return {
         'mask': resp.data as Uint8List,
         'overlay': null,
@@ -277,45 +339,50 @@ class ApiClient {
         'status': resp.statusCode,
         'latencyMs': latFromHeaders() ?? sw.elapsedMilliseconds,
         'clientTotalMs': sw.elapsedMilliseconds,
+        'serverPreMs': serverPreMs,
         'serverInferMs': serverInferMs,
+        'serverPostMs': serverPostMs,
         'requestId': requestId,
-        'outputType':
-            outputType, // untuk distinguish antara binary mask vs probability
+        'outputType': outputType,
+        'requestedMode': modeRequestedHeader,
+        'modeUsed': modeUsedHeader,
+        'modeFallback': modeFallbackHeader,
       };
     }
 
-    // --- CASE 2: Response berupa JSON (fmt=compact atau fmt=json) ---
     try {
       final text = utf8.decode(resp.data as Uint8List);
       js = jsonDecode(text);
 
-      // Parse mask dari berbagai format yang mungkin
       if (js != null && js['mask_png_b64'] != null) {
-        // Format compact: mask_png_b64
         maskBytes = base64Decode(js['mask_png_b64']);
       }
       if (js != null && js['segmentation_mask'] != null) {
-        // Format json: segmentation_mask (data URL)
         maskBytes ??= fromDataUrl(js['segmentation_mask'] as String?);
       }
 
-      // Parse overlay & original (hanya ada di fmt=json dengan return_overlay=true)
       if (js != null) {
         overlayBytes = fromDataUrl(js['overlay_image'] as String?);
         originalBytes = fromDataUrl(js['original_image'] as String?);
       }
 
-      // Extract statistics (hanya ada di fmt=json)
       if (js != null && js['statistics'] is Map) {
         statistics = Map<String, dynamic>.from(js['statistics']);
       }
 
-      // Extract lossless probability map (hanya ada di fmt=json dengan proba=true)
       if (js != null && js['proba_npy_b64'] is String) {
         probaNpyB64 = js['proba_npy_b64'];
       }
 
-      // Latency dari timing_ms di payload atau fallback ke header/stopwatch
+      final requestedMode =
+          (js != null ? js['requested_mode'] as String? : null) ??
+              modeRequestedHeader;
+      final modeUsed =
+          (js != null ? js['mode_used'] as String? : null) ?? modeUsedHeader;
+      final modeFallback =
+          (js != null ? js['mode_fallback'] as String? : null) ??
+              modeFallbackHeader;
+
       final timing = (js != null && js['timing_ms'] is Map)
           ? js['timing_ms'] as Map
           : null;
@@ -326,10 +393,17 @@ class ApiClient {
           latFromHeaders() ??
           sw.elapsedMilliseconds;
 
-      // Server inference time dari timing_ms.infer_ms atau header x-infer-ms
       final serverInferMsFinal = serverInferMs ??
           (timing?['infer_ms'] is num
               ? (timing!['infer_ms'] as num).toInt()
+              : null);
+      final serverPreMsFinal = serverPreMs ??
+          (timing?['pre_ms'] is num
+              ? (timing!['pre_ms'] as num).toInt()
+              : null);
+      final serverPostMsFinal = serverPostMs ??
+          (timing?['post_ms'] is num
+              ? (timing!['post_ms'] as num).toInt()
               : null);
 
       return {
@@ -342,13 +416,18 @@ class ApiClient {
         'latencyMs':
             (latency is num) ? latency.toInt() : sw.elapsedMilliseconds,
         'clientTotalMs': sw.elapsedMilliseconds,
+        'serverPreMs': serverPreMsFinal,
         'serverInferMs': serverInferMsFinal,
+        'serverPostMs': serverPostMsFinal,
         'requestId': requestId,
-        'probaNpyB64': probaNpyB64, // lossless probability map (base64 .npy)
+        'probaNpyB64': probaNpyB64,
+        'requestedMode': requestedMode,
+        'modeUsed': modeUsed,
+        'modeFallback': modeFallback,
       };
     } catch (_) {
       throw Exception(
-          'Unknown response: status=${resp.statusCode}, contentType=$contentType');
+          'Unknown response: status=${resp.statusCode}, contentType=$responseContentType');
     }
   }
 

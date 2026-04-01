@@ -1,0 +1,5 @@
+# Optional Mamba dependencies for full architecture parity
+# Install only when your environment supports building/running mamba-ssm
+
+mamba-ssm>=2.2.2
+causal-conv1d>=1.4.0

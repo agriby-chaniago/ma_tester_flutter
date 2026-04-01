@@ -1107,10 +1107,10 @@ class ComprehensiveReportPageWithData extends StatelessWidget {
                       height: 48,
                       decoration: BoxDecoration(
                         color: dtc.isPassed
-                            ? Colors.green.withOpacity(0.2)
+                            ? Colors.green.withValues(alpha: 0.2)
                             : (dtc.isFailed
-                                ? Colors.red.withOpacity(0.2)
-                                : Colors.grey.withOpacity(0.2)),
+                                ? Colors.red.withValues(alpha: 0.2)
+                                : Colors.grey.withValues(alpha: 0.2)),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -1210,7 +1210,7 @@ class ComprehensiveReportPageWithData extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
