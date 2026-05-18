@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    expose:
+      - "8000"
+    # ports:
+    #   - "8000:8000"   # uncomment for direct debug access
+    environment:
+      - CKPT_PATH=/app/ckpts_ma/best_state_dict.pt
+      - REAL_PIPELINE_MODULE=ma_api.real_impl_notebook_port
+    volumes:
+      - ./backend/ckpts_ma:/app/ckpts_ma:ro
+    restart: unless-stopped
+    gpus: all
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

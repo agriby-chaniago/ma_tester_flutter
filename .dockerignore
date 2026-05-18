@@ -1,0 +1,15 @@
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+cuda_*.run
+backend/.venv
+backend/.runtime
+**/__pycache__
+**/*.pyc
+**/*.pyo
+ios/
+android/
+macos/
+windows/
+*.ipynb
