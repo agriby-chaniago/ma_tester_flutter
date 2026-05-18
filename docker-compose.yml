@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ma_tester_backend:latest
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -22,6 +23,7 @@ services:
       start_period: 90s
 
   frontend:
+    image: ma_tester_frontend:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend
