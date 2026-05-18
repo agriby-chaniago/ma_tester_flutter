@@ -54,3 +54,13 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.runtime/
 backend/*.log
+
+# Large binaries — tidak perlu di git, transfer via USB
+cuda_*.run
+backend/ckpts_ma/*.ckpt
+backend/ckpts_ma/*.pt
+!backend/ckpts_ma/.gitkeep
+
+# Specific large notebooks
+MAFocused.ipynb
+MAFocused_API.ipynb

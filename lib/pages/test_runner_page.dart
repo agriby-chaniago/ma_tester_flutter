@@ -441,9 +441,16 @@ class _TestRunnerPageState extends State<TestRunnerPage> {
     final inputSha256 = sha256.convert(bytes).toString();
 
     // Get image dimensions
-    final img = await decodeImageFromList(bytes);
-    final width = img.width;
-    final height = img.height;
+    late final int width;
+    late final int height;
+    try {
+      final img = await decodeImageFromList(bytes);
+      width = img.width;
+      height = img.height;
+    } catch (e) {
+      _log('⚠ Image decode failed: $e');
+      return;
+    }
 
     _log(
         'Selected: ${image.name}, ${width}x$height, ${inputKB.toStringAsFixed(1)} KB');

@@ -12,7 +12,7 @@ class ApiClient {
           baseUrl: baseUrl.endsWith('/')
               ? baseUrl.substring(0, baseUrl.length - 1)
               : baseUrl,
-          connectTimeout: Duration(milliseconds: timeoutMs),
+          connectTimeout: const Duration(seconds: 10),
           receiveTimeout: Duration(milliseconds: timeoutMs),
           sendTimeout: Duration(milliseconds: timeoutMs),
           // Accept all status codes to handle 500 errors gracefully
@@ -25,6 +25,13 @@ class ApiClient {
         responseBody: false,
         error: true,
         logPrint: (obj) => debugPrint(obj.toString()),
+      ));
+    } else {
+      _dio.interceptors.add(InterceptorsWrapper(
+        onError: (e, handler) {
+          debugPrint('[api_client] ERROR: ${e.message}');
+          handler.next(e);
+        },
       ));
     }
   }

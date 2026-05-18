@@ -699,7 +699,7 @@ class _ComprehensiveReportPageState extends State<ComprehensiveReportPage>
   }
 
   Future<void> _exportReport() async {
-    // TODO: Implement export to CSV/PDF
+    // Planned: implement export to CSV/PDF.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Export feature coming soon')),
     );

@@ -38,7 +38,17 @@ def create_overlay(rgb_u8: np.ndarray, mask_u8: np.ndarray) -> np.ndarray:
 
 
 def preprocess_probability(rgb_u8: np.ndarray) -> np.ndarray:
-    green = rgb_u8[:, :, 1].astype(np.float32)
+    arr = rgb_u8
+    if arr.ndim == 2:
+        arr = np.stack([arr, arr, arr], axis=-1)       # (H,W) → (H,W,3)
+    elif arr.ndim == 3 and arr.shape[2] == 1:
+        arr = np.repeat(arr, 3, axis=2)                # (H,W,1) → (H,W,3)
+    elif arr.ndim == 3 and arr.shape[2] > 3:
+        arr = arr[:, :, :3]                            # RGBA/multi → (H,W,3)
+    if arr.ndim != 3 or arr.shape[2] < 3:
+        raise ValueError(f"Unsupported image shape after normalization: {arr.shape}")
+
+    green = arr[:, :, 1].astype(np.float32)
     min_v = float(green.min())
     max_v = float(green.max())
     if max_v - min_v < 1e-6:
@@ -47,12 +57,14 @@ def preprocess_probability(rgb_u8: np.ndarray) -> np.ndarray:
         norm = (green - min_v) / (max_v - min_v)
 
     enhanced = np.power(norm, 0.8)
+    # uint8 round-trip required for PIL GaussianBlur; quantization acceptable for 8-bit fundus input
     smooth = np.array(
         Image.fromarray((enhanced * 255).astype(np.uint8)).filter(
             ImageFilter.GaussianBlur(radius=2)
         ),
         dtype=np.float32,
     ) / 255.0
+    smooth = np.nan_to_num(smooth, nan=0.0, posinf=1.0, neginf=0.0)
 
     proba = np.clip(enhanced - smooth + 0.5, 0.0, 1.0)
     return proba
@@ -123,6 +135,8 @@ def remove_small_components(mask_u8: np.ndarray, min_area: int) -> np.ndarray:
 
 
 def compute_statistics(mask_u8: np.ndarray) -> dict:
+    if mask_u8.ndim == 3:
+        mask_u8 = mask_u8[:, :, 0]
     h, w = mask_u8.shape
     mask_bool = mask_u8 > 0
     areas = connected_components_areas(mask_bool)

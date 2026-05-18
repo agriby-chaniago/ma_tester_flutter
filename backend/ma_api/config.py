@@ -13,7 +13,7 @@ def _env_str(name: str, default: str) -> str:
     raw = os.getenv(name)
     if raw is None:
         return default
-    value = raw.strip().lower()
+    value = raw.strip()
     return value or default
 
 
@@ -49,7 +49,7 @@ class Settings:
     max_batch_files: int = 10
     min_component_area: int = 8
     default_inference_mode: str = _env_str("DEFAULT_INFERENCE_MODE", "auto")
-    enable_real_mode: bool = _env_bool("ENABLE_REAL_MODE", False)
+    enable_real_mode: bool = _env_bool("ENABLE_REAL_MODE", True)
     allow_real_fallback: bool = _env_bool("ALLOW_REAL_FALLBACK", True)
     real_pipeline_module: str = _env_str("REAL_PIPELINE_MODULE", "")
     real_pipeline_callable: str = _env_str("REAL_PIPELINE_CALLABLE", "predict")

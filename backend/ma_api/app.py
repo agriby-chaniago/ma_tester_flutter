@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import base64
 import importlib
+import inspect
+import logging
 import time
 from io import BytesIO
 from typing import Any, Callable
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
@@ -94,6 +98,21 @@ def _load_real_pipeline() -> tuple[Callable[..., Any] | None, str | None, dict[s
 
 REAL_PIPELINE_FN, REAL_PIPELINE_ERROR, REAL_PIPELINE_META = _load_real_pipeline()
 REAL_PIPELINE_IMPLEMENTED = REAL_PIPELINE_FN is not None
+
+# Cache call strategy at startup — avoid per-request exception-driven dispatch.
+# Contract: REAL_PIPELINE_FN must accept (rgb_u8, threshold) positionally
+# or (rgb_u8=..., threshold=...) as keyword args.
+_pipeline_use_kwargs: bool = False
+if REAL_PIPELINE_FN is not None:
+    try:
+        sig = inspect.signature(REAL_PIPELINE_FN)
+        sig.bind(rgb_u8=None, threshold=0.5)
+        _pipeline_use_kwargs = True
+        logger.info("[init] REAL_PIPELINE_FN: using keyword call strategy")
+    except (TypeError, ValueError):
+        # ValueError: inspect.signature() fails for some C-extension / torch.compile objects
+        _pipeline_use_kwargs = False
+        logger.info("[init] REAL_PIPELINE_FN: using positional call strategy")
 
 
 def _is_allowed_magic(raw: bytes) -> bool:
@@ -229,19 +248,26 @@ def _timed_predict_real(rgb_u8: np.ndarray, threshold: float) -> tuple[np.ndarra
         raise HTTPException(status_code=503, detail=detail)
 
     try:
-        try:
+        if _pipeline_use_kwargs:
             out = REAL_PIPELINE_FN(rgb_u8=rgb_u8, threshold=threshold)
-        except TypeError:
+        else:
             out = REAL_PIPELINE_FN(rgb_u8, threshold)
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Real mode inference failed: {exc}") from exc
 
-    if not isinstance(out, tuple) or len(out) != 4:
+    if out is None:
+        raise HTTPException(status_code=500, detail="REAL_PIPELINE_FN returned None")
+    if not isinstance(out, tuple):
         raise HTTPException(
             status_code=500,
-            detail="Real pipeline must return tuple: (proba_map, mask_u8, stats, timing)",
+            detail=f"REAL_PIPELINE_FN must return tuple, got {type(out).__name__}",
+        )
+    if len(out) != 4:
+        raise HTTPException(
+            status_code=500,
+            detail=f"REAL_PIPELINE_FN must return 4-tuple, got len={len(out)}",
         )
 
     proba_map, mask_u8, stats, timing = out
@@ -254,6 +280,24 @@ def _timed_predict_real(rgb_u8: np.ndarray, threshold: float) -> tuple[np.ndarra
         raise HTTPException(status_code=500, detail="Real pipeline output stats must be dict")
     if not isinstance(timing, dict):
         raise HTTPException(status_code=500, detail="Real pipeline output timing must be dict")
+
+    if proba_map.ndim < 2 or mask_u8.ndim < 2:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Pipeline output unexpected ndim: proba={proba_map.ndim}, mask={mask_u8.ndim}",
+        )
+    if proba_map.size == 0 or mask_u8.size == 0:
+        raise HTTPException(status_code=500, detail="Pipeline returned empty array")
+    if proba_map.shape[:2] != mask_u8.shape[:2]:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Shape mismatch: proba={proba_map.shape}, mask={mask_u8.shape}",
+        )
+    if not np.issubdtype(proba_map.dtype, np.number):
+        raise HTTPException(
+            status_code=500,
+            detail=f"proba_map dtype must be numeric, got {proba_map.dtype}",
+        )
 
     if mask_u8.dtype != np.uint8:
         mask_u8 = np.clip(mask_u8, 0, 255).astype(np.uint8)
@@ -286,8 +330,9 @@ def _predict_with_runtime_fallback(
     try:
         proba_map, mask_u8, stats, timing = _timed_predict(rgb_u8, threshold, mode_used)
         return proba_map, mask_u8, stats, timing, mode_used, mode_fallback, mode_headers
-    except HTTPException:
+    except HTTPException as exc:
         if mode_used == MODE_REAL and allow_fallback and requested_mode in {MODE_AUTO, MODE_REAL}:
+            logger.warning("[predict] real-mode failed (%r) — falling back to sim", exc.detail)
             proba_map, mask_u8, stats, timing = _timed_predict_sim(rgb_u8, threshold)
             mode_used = MODE_SIM
             mode_fallback = mode_fallback or "real-runtime->sim"
@@ -451,6 +496,11 @@ async def predict(
         )
 
     if fmt == "proba":
+        finite_mask = np.isfinite(proba_map)
+        if not finite_mask.all():
+            non_finite_count = int(finite_mask.size - finite_mask.sum())
+            logger.warning("[predict] proba_map contains %d non-finite values — sanitizing", non_finite_count)
+        proba_map = np.nan_to_num(proba_map, nan=0.0, posinf=1.0, neginf=0.0)
         proba_u8 = np.clip(proba_map * 255.0, 0, 255).astype(np.uint8)
         png = image_to_png_bytes(proba_u8)
         return Response(
@@ -535,6 +585,8 @@ async def predict_batch(
 
     if len(files) == 0:
         raise HTTPException(status_code=400, detail="No files uploaded")
+    if len(files) == 1:
+        logger.warning("[batch] single file submitted — consider /predict for single images")
     if len(files) > settings.max_batch_files:
         raise HTTPException(
             status_code=400,
@@ -586,9 +638,12 @@ async def predict_batch(
                 batch_mode_fallback = item_mode_fallback
 
             if fmt == "compact":
-                item["mask_png_b64"] = base64.b64encode(image_to_png_bytes(mask_u8)).decode(
-                    "ascii"
-                )
+                try:
+                    item["mask_png_b64"] = base64.b64encode(image_to_png_bytes(mask_u8)).decode("ascii")
+                except Exception as enc_exc:
+                    item["mask_png_b64"] = None
+                    item["overlay_png_b64"] = None
+                    item["error"] = f"Encoding failed: {enc_exc}"
                 item["timing_ms"] = timing
             else:
                 item["num_components"] = stats["num_microaneurysms"]

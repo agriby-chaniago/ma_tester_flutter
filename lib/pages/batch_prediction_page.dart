@@ -193,7 +193,7 @@ class _BatchPredictionPageState extends State<BatchPredictionPage> {
               coveragePercentage:
                   (stats?['coverage_percentage'] as num?)?.toDouble(),
               clientTotalMs: clientTotalMs,
-              serverInferMs: serverInferMs ?? timingMs?['infer_ms'] as int?,
+              serverInferMs: serverInferMs ?? (timingMs?['infer_ms'] as num?)?.toInt(),
               metrics: metrics,
             );
           });

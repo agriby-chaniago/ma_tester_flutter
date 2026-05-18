@@ -26,6 +26,7 @@ def _bool_env(name: str, default: bool) -> bool:
 
 _USE_LINFORMER = _bool_env("REAL_USE_LINFORMER", True)
 _USE_MAMBA = _bool_env("REAL_USE_MAMBA", True)
+_MAMBA_STRICT = _bool_env("REAL_MAMBA_STRICT", False)
 
 
 def _probe_import_in_subprocess(module_name: str, timeout_s: int = 20) -> tuple[bool, str]:
@@ -96,6 +97,8 @@ if _USE_MAMBA:
 else:
     Mamba = None
 
+_MAMBA_FALLBACK_ACTIVE = bool(_USE_MAMBA and Mamba is None and not _MAMBA_STRICT)
+
 REAL_PIPELINE_NAME = "UNetLinformerMamba-real"
 REAL_PIPELINE_VERSION = "1.0.0-notebook-port"
 
@@ -165,10 +168,11 @@ def _feature_error() -> str:
             + (f": {_LINFORMER_IMPORT_ERROR}" if _LINFORMER_IMPORT_ERROR else "")
         )
     if _USE_MAMBA and Mamba is None:
-        parts.append(
-            "mamba requested but unavailable"
-            + (f": {_MAMBA_IMPORT_ERROR}" if _MAMBA_IMPORT_ERROR else "")
-        )
+        if _MAMBA_STRICT:
+            parts.append(
+                "mamba requested but unavailable"
+                + (f": {_MAMBA_IMPORT_ERROR}" if _MAMBA_IMPORT_ERROR else "")
+            )
     return "; ".join(parts)
 
 
@@ -751,6 +755,11 @@ if torch is None or cv2 is None:
     REAL_PIPELINE_READY = False
     REAL_PIPELINE_ERROR = _deps_error() or "Real dependencies unavailable"
 else:
+    if _MAMBA_FALLBACK_ACTIVE:
+        logger.warning(
+            "REAL_USE_MAMBA=true but mamba_ssm is unavailable; "
+            "falling back to non-mamba decoder (set REAL_MAMBA_STRICT=true to require mamba)."
+        )
     _feature_err = _feature_error()
     if _feature_err:
         REAL_PIPELINE_READY = False

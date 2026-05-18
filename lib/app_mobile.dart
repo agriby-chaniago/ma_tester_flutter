@@ -55,11 +55,21 @@ class _MainPageState extends State<MainPage> {
         debugPrint('Health check OK: ${health['ready']}');
       } catch (e) {
         debugPrint('Health check failed: $e');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Backend unreachable: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
       }
 
       final info = await api.modelInfo();
       debugPrint('Model info loaded: ${info['arch']}');
 
+      if (!mounted) return;
       setState(() {
         _modelInfo = info;
       });

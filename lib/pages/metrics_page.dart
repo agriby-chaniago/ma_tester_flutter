@@ -35,11 +35,13 @@ class _MetricsPageState extends State<MetricsPage> {
       final api = ApiClient(baseUrl);
       final metrics = await api.metricsBasic();
 
+      if (!mounted) return;
       setState(() {
         _metrics = metrics;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;

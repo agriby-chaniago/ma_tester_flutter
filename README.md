@@ -1,57 +1,73 @@
 # MA Segmentation Tester
 
-Flutter application for retinal microaneurysm segmentation testing and simulation.
-
-## App Modes
-
-- Web mode opens an interactive simulator focused on upload and segmentation visualization.
-- Non-web mode opens the full multi-tab tester for API testing, batch, metrics, and performance.
+Flutter app for retinal microaneurysm segmentation — web simulator + full tester.
 
 ## Requirements
 
-- Flutter SDK installed and available in PATH.
-- A running backend API with these endpoints:
-  - GET /healthz
-  - GET /model_info
-  - GET /metrics_basic
-  - POST /predict
-  - POST /predict_batch
-- Configure API URL in .env:
-  - API_BASE=https://your-server-url
-  - TIMEOUT_MS=90000
+- Flutter SDK
+- Python 3.11+ (for backend)
 
-## Run Local Web Simulator
+## Quick Start
 
-1. Install dependencies
+### 1. Backend
 
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-real.txt -r requirements-real-mamba.txt
+
+./run.sh start       # start in background
+./run.sh status      # check running
+./run.sh logs        # tail logs
+./run.sh stop        # stop
+```
+
+Backend runs at `http://127.0.0.1:8000`.
+
+### 2. Frontend
+
+```bash
+# Web (Chrome) — simulator UI
 flutter pub get
-
-2. Run web app
-
 flutter run -d chrome
 
-3. Open simulator and verify connection
-
-- Click health check in app bar.
-- Upload retinal image.
-- Run simulation and inspect mask or overlay output.
-
-## Run Non-Web App
-
+# Desktop/device — full tester (API, batch, metrics, performance)
 flutter run
+```
 
-This opens the full tester interface (API tests, batch, single prediction, metrics, performance).
+### 3. Configure API URL
 
-## Key Web Simulator Features
+Edit `.env` in project root:
 
-- Upload retinal image and run segmentation.
-- Interactive viewer with zoom and pan.
-- View modes: original, mask, overlay, compare.
-- Overlay opacity control.
-- Timing and segmentation statistics panel.
-- Session history panel for recent runs.
+```
+API_BASE=http://127.0.0.1:8000
+TIMEOUT_MS=90000
+```
 
-## Notes
+> If `.env` fails to load in browser, enter API URL manually in the app bar.
 
-- If .env fails to load in some web environments, you can still enter API URL manually in the simulator.
-- For stable local demos, ensure backend is ready before running inference.
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/healthz` | Health check |
+| GET | `/model_info` | Model metadata |
+| GET | `/metrics_basic` | Basic metrics |
+| POST | `/predict` | Single image inference |
+| POST | `/predict_batch` | Batch inference |
+
+## Inference Modes
+
+`/predict` and `/predict_batch` accept `mode=auto|sim|real`:
+
+- `auto` — use real model if ready, else simulator
+- `sim` — force simulator
+- `real` — force real model (falls back to sim if `allow_fallback=true`)
+
+## Web Simulator Features
+
+- Upload retinal image → run segmentation
+- View: original / mask / overlay / compare
+- Overlay opacity control
+- Timing + statistics panel
+- Session history
