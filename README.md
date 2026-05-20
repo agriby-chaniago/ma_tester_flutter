@@ -80,36 +80,31 @@ Jalankan full stack (Flutter web + FastAPI backend + GPU inference) di workstati
 
 ### Prasyarat
 
-Install di workstation target sebelum mulai:
+Install di workstation Windows 11 target sebelum mulai:
 
-**1. Docker Engine (v24+)**
-```bash
-# Cek versi
+**1. Docker Desktop for Windows**
+```powershell
+# Cek versi (PowerShell atau Windows Terminal)
 docker --version
 docker compose version
 ```
-Install: https://docs.docker.com/engine/install/
+Install: https://docs.docker.com/desktop/install/windows-install/
 
-**2. NVIDIA Driver (≥ 530.30.02 untuk CUDA 12.1)**
-```bash
+> Pastikan WSL2 backend aktif: Docker Desktop → Settings → General → "Use the WSL 2 based engine" ✓ (default di Windows 11).
+
+**2. NVIDIA Driver for Windows (≥ 530.30.02 untuk CUDA 12.1)**
+```powershell
 nvidia-smi
 # Pastikan Driver Version ≥ 530.30.02
 ```
+Download: https://www.nvidia.com/Download/index.aspx
 
-**3. NVIDIA Container Toolkit**
-```bash
-# Install
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-
-# Verifikasi
+**3. Verifikasi GPU ke Docker**
+```powershell
 docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
 ```
+
+> Di Windows 11 + Docker Desktop, NVIDIA Container Toolkit **tidak perlu diinstall manual**. Docker Desktop otomatis enable GPU passthrough via WSL2 backend — cukup driver Windows + Docker Desktop saja.
 
 ---
 
@@ -225,7 +220,7 @@ docker compose exec frontend ls /usr/share/nginx/html/
 Sesuaikan `location` di `docker/nginx.conf` jika path berbeda.
 
 **`docker: unknown flag: --gpus`**
-NVIDIA Container Toolkit belum terinstall atau Docker belum direstart setelah install. Ulangi Step prasyarat nomor 3.
+Docker Desktop belum enable GPU support. Pastikan: Settings → General → "Use the WSL 2 based engine" aktif, lalu restart Docker Desktop.
 
 **`CUDA driver version is insufficient`**
 NVIDIA driver di host terlalu lama. Update driver ke ≥ 530.30.02.
