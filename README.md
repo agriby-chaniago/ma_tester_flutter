@@ -80,31 +80,55 @@ Jalankan full stack (Flutter web + FastAPI backend + GPU inference) di workstati
 
 ### Prasyarat
 
-Install di workstation Windows 11 target sebelum mulai:
+Install di workstation Windows 11 target sebelum mulai. **Urutan penting.**
 
-**1. Docker Desktop for Windows**
-```powershell
-# Cek versi (PowerShell atau Windows Terminal)
-docker --version
-docker compose version
-```
-Install: https://docs.docker.com/desktop/install/windows-install/
+**1. Git for Windows**
 
-> Pastikan WSL2 backend aktif: Docker Desktop → Settings → General → "Use the WSL 2 based engine" ✓ (default di Windows 11).
+Download dan install: https://git-scm.com/download/win
+
+Pilih opsi default saat wizard install. Setelah selesai, gunakan **Windows Terminal** atau **PowerShell** untuk semua perintah selanjutnya.
+
+---
 
 **2. NVIDIA Driver for Windows (≥ 530.30.02 untuk CUDA 12.1)**
+
+Download driver terbaru untuk GPU kamu: https://www.nvidia.com/Download/index.aspx
+
+Install driver, restart Windows, lalu verifikasi:
 ```powershell
 nvidia-smi
 # Pastikan Driver Version ≥ 530.30.02
 ```
-Download: https://www.nvidia.com/Download/index.aspx
 
-**3. Verifikasi GPU ke Docker**
+> Install driver **sebelum** Docker Desktop agar GPU terdeteksi dengan benar saat konfigurasi WSL2.
+
+---
+
+**3. Docker Desktop for Windows**
+
+Download: https://docs.docker.com/desktop/install/windows-install/
+
+Jalankan installer, ikuti wizard. Docker Desktop akan otomatis menginstall dan mengaktifkan **WSL2** jika belum ada — restart Windows jika diminta.
+
+Setelah install, verifikasi:
+```powershell
+docker --version
+docker compose version
+```
+
+> Pastikan WSL2 backend aktif: Docker Desktop → Settings → General → "Use the WSL 2 based engine" ✓ (default di Windows 11).
+
+---
+
+**4. Verifikasi GPU ke Docker**
+
 ```powershell
 docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
 ```
 
-> Di Windows 11 + Docker Desktop, NVIDIA Container Toolkit **tidak perlu diinstall manual**. Docker Desktop otomatis enable GPU passthrough via WSL2 backend — cukup driver Windows + Docker Desktop saja.
+Output harus menampilkan info GPU. Jika berhasil, setup selesai.
+
+> Di Windows 11 + Docker Desktop, NVIDIA Container Toolkit **tidak perlu diinstall manual**. Docker Desktop otomatis enable GPU passthrough via WSL2 backend.
 
 ---
 
