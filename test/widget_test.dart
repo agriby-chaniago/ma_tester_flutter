@@ -17,6 +17,6 @@ void main() {
     await tester.pumpWidget(const WebApp());
     await tester.pump();
 
-    expect(find.text('MA Retinal Simulator'), findsOneWidget);
+    expect(find.text('Retinexa'), findsOneWidget);
   });
 }

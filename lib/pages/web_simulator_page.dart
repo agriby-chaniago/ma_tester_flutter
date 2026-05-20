@@ -1071,7 +1071,7 @@ class _WebSimulatorPageState extends State<WebSimulatorPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFFE7EFED),
-        title: const Text('MA Retinal Simulator'),
+        title: const Text('Retinexa'),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),

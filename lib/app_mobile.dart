@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MA Segmentation Tester',
+      title: 'Retinexa',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
       home: const MainPage(),
     );
@@ -201,7 +201,7 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MA Segmentation Tester'),
+        title: const Text('Retinexa'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
