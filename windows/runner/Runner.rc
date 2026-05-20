@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "ma_tester_flutter" "\0"
+            VALUE "FileDescription", "Retinexa" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "ma_tester_flutter" "\0"
+            VALUE "InternalName", "Retinexa" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ma_tester_flutter.exe" "\0"
-            VALUE "ProductName", "ma_tester_flutter" "\0"
+            VALUE "OriginalFilename", "Retinexa.exe" "\0"
+            VALUE "ProductName", "Retinexa" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:ma_tester_flutter/app_web.dart';
+import 'package:retinexa/app_web.dart';
 
 void main() {
   testWidgets('app boot smoke test', (WidgetTester tester) async {

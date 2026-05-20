@@ -1,5 +1,5 @@
-name: ma_tester_flutter
-description: Starter Flutter for black-box testing FastAPI (ngrok) segmentation model
+name: retinexa
+description: Retinexa — retinal segmentation model tester
 publish_to: "none"
 environment:
   sdk: ">=3.4.0 <4.0.0"

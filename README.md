@@ -1,4 +1,4 @@
-# MA Segmentation Tester
+# Retinexa
 
 Flutter app for retinal microaneurysm segmentation — web simulator + full tester.
 
@@ -135,8 +135,8 @@ Output harus menampilkan info GPU. Jika berhasil, setup selesai.
 ### Step 1 — Clone Repository
 
 ```bash
-git clone https://github.com/agriby-chaniago/ma_tester_flutter.git
-cd ma_tester_flutter
+git clone https://github.com/agriby-chaniago/retinexa.git
+cd retinexa
 ```
 
 ---
@@ -146,7 +146,7 @@ cd ma_tester_flutter
 Model weights tidak disimpan di git karena ukurannya besar. Copy dari flash drive ke folder berikut:
 
 ```
-ma_tester_flutter/
+retinexa/
 └── backend/
     └── ckpts_ma/          ← paste semua file weights ke sini
         ├── best_state_dict.pt

@@ -96,8 +96,8 @@ docker pull ghcr.io/cirruslabs/flutter:stable
 ### B. Clone repository
 
 ```powershell
-git clone https://github.com/agriby-chaniago/ma_tester_flutter.git
-cd ma_tester_flutter
+git clone https://github.com/agriby-chaniago/retinexa.git
+cd retinexa
 ```
 
 ### C. Copy model weights dari USB
@@ -311,7 +311,7 @@ Windows Defender scan WSL filesystem memperlambat drastis. Tambahkan exclusion:
 Windows Security → Virus & threat protection → Manage settings → Exclusions → Add a folder:
 - C:\Users\<user>\AppData\Local\Docker
 - C:\Users\<user>\.docker
-- <lokasi folder project ma_tester_flutter>
+- <lokasi folder project retinexa>
 ```
 
 ---
